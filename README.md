@@ -19,9 +19,9 @@ This contract explicitly addresses the security and trust-model vulnerabilities 
 * **Vulnerability:** Unreachable URLs (404s, timeouts) crash naive GenVM consensus implementations.
 * **Solution:** Web acquisition (`gl.nondet.web.render`) is tightly wrapped in `try/except` blocks. If a source is unreachable, the LLM is injected with a strict `ERROR_FETCHING_URL` flag, triggering a graceful degradation of the state to `UNVERIFIABLE` rather than panicking the consensus network.
 
-### 3. Semantic Banding Consensus
-* **Vulnerability:** Forcing exact JSON matching on subjective evaluations fails due to LLM non-determinism (temperature variance).
-* **Solution:** The contract implements a Semantic Consensus Strategy. Instead of strict numerical equivalence, the Validator maps the `confidence_score` into deterministic bands (`0-34`, `35-79`, `80-100`). This ensures robust mathematical consensus on subjective material outcomes without failing on prose variance.
+### 3. Boolean Semantic Consensus
+* **Vulnerability:** Forcing exact JSON matching on subjective evaluations fails due to LLM non-determinism (temperature variance). Naive AI contracts crash when nodes generate slightly different confidence scores.
+* **Solution:** The contract implements a robust Boolean Semantic Consensus Strategy. Instead of strict numerical equivalence, the Validator extracts and compares only the core deterministic `verdict` (`FULFILLED` vs `UNVERIFIABLE`). The underlying confidence scores are preserved in state for UI rendering, but isolated from the consensus layer to guarantee high-availability execution.
 
 ## Reusability
 This contract serves as a foundational "Lego block" (primitive) that can be plugged into:
