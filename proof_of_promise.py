@@ -175,20 +175,6 @@ class InstitutionalProofOfPromise(gl.Contract):
                 if l_data.get("verdict") != v_data.get("verdict"):
                     return False
                     
-                # 2. Semantic Consensus Strategy: Deterministic Bands
-                # Reviewers loved the deterministic bands from previous contracts.
-                # Instead of matching numbers, we map confidence to bands: 0-34, 35-79, 80-100
-                def get_band(score: int) -> int:
-                    if score < 35: return 1
-                    if score < 80: return 2
-                    return 3
-                    
-                l_band = get_band(int(l_data.get("confidence_score", 0)))
-                v_band = get_band(int(v_data.get("confidence_score", 0)))
-                
-                if l_band != v_band:
-                    return False
-                    
                 return True
             except Exception:
                 return False
