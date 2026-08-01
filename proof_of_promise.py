@@ -158,7 +158,16 @@ class InstitutionalProofOfPromise(gl.Contract):
 
         def validator_fn(leader_res) -> bool:
             try:
-                leader_str = leader_res if type(leader_res) is str else leader_res.value
+                leader_str = ""
+                if type(leader_res) is str:
+                    leader_str = leader_res
+                elif hasattr(leader_res, "value"):
+                    leader_str = leader_res.value
+                elif hasattr(leader_res, "calldata"):
+                    leader_str = leader_res.calldata
+                else:
+                    return False
+                    
                 l_data = json.loads(leader_str)
                 v_data = json.loads(leader_fn())
                 
