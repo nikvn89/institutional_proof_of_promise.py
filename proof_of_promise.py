@@ -6,6 +6,9 @@ from urllib.parse import urlparse
 from genlayer import *
 
 class InstitutionalProofOfPromise(gl.Contract):
+    promises_str: str
+    evidence_str: str
+
     def __init__(self):
         # State storage
         self.promises_str = "{}"
