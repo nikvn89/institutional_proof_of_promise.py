@@ -21,6 +21,7 @@ class InstitutionalProofOfPromise(gl.Contract):
         CRITICAL SECURITY: The creator must define a strict list of trusted_domains (e.g. ['github.com', 'twitter.com']).
         This prevents attackers from defining their own trust model using fake domains.
         """
+        promise_id = promise_id.strip().strip('"').strip("'")
         promises = json.loads(self.promises_str)
         if promise_id in promises:
             raise gl.vm.UserError("Promise ID already exists")
@@ -48,6 +49,8 @@ class InstitutionalProofOfPromise(gl.Contract):
         Adds evidence URLs. 
         CRITICAL SECURITY: Strictly parses the URL and enforces the Source-Authority policy.
         """
+        promise_id = promise_id.strip().strip('"').strip("'")
+        url = url.strip().strip('"').strip("'")
         promises = json.loads(self.promises_str)
         if promise_id not in promises:
             raise gl.vm.UserError("Promise not found")
@@ -81,6 +84,7 @@ class InstitutionalProofOfPromise(gl.Contract):
 
     @gl.public.write
     def trigger_evaluation(self, promise_id: str) -> None:
+        promise_id = promise_id.strip().strip('"').strip("'")
         promises = json.loads(self.promises_str)
         if promise_id not in promises:
             raise gl.vm.UserError("Promise not found")
@@ -190,6 +194,7 @@ class InstitutionalProofOfPromise(gl.Contract):
 
     @gl.public.view
     def get_promise(self, promise_id: str) -> str:
+        promise_id = promise_id.strip().strip('"').strip("'")
         promises = json.loads(self.promises_str)
         evidence = json.loads(self.evidence_str)
         if promise_id in promises:
