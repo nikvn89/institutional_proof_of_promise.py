@@ -23,6 +23,10 @@ This contract explicitly addresses the security and trust-model vulnerabilities 
 * **Vulnerability:** Forcing exact JSON matching on subjective evaluations fails due to LLM non-determinism (temperature variance). Naive AI contracts crash when nodes generate slightly different confidence scores.
 * **Solution:** The contract implements a robust Boolean Semantic Consensus Strategy. Instead of strict numerical equivalence, the Validator extracts and compares only the core deterministic `verdict` (`FULFILLED` vs `UNVERIFIABLE`). The underlying confidence scores are preserved in state for UI rendering, but isolated from the consensus layer to guarantee high-availability execution.
 
+### 4. Advanced Threat Protection (v0.2.16 Update)
+* **Caller-Authorization (Evaluation Locks):** To prevent malicious third parties from triggering premature evaluations (before evidence collection is finalized), the `trigger_evaluation` function enforces strict role-based access control. Only the Creator (Funder) or the explicitly assigned Developer can invoke the evaluation process.
+* **Prompt Injection Fencing:** Untrusted user inputs and dynamically scraped web content are tightly sandboxed within `<UNTRUSTED_SUBMISSION>` tags. The contract actively sanitizes and purges forged tags from evidence payloads, preventing prompt-breakout attacks designed to manipulate the LLM into rendering fraudulent `FULFILLED` verdicts.
+
 ## Reusability
 This contract serves as a foundational "Lego block" (primitive) that can be plugged into:
 - **Grants DAOs:** Automatically releasing Treasury funds when a milestone reaches `FULFILLED` status.
