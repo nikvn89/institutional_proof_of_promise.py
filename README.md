@@ -1,37 +1,82 @@
-# Institutional Proof of Promise (PoP)
+# 🏛️ Institutional Proof of Promise — Escrow with AI Verification
 
-A production-grade GenVM primitive for trustlessly verifying milestones, grants, and public commitments on GenLayer.
+**Contract (GenVM StudioNet):** `0xa315f1d65D476B1b667feb80f763666fd8a75505`
+**Explorer:** https://explorer-studio.genlayer.com/address/0xa315f1d65D476B1b667feb80f763666fd8a75505
+**GitHub:** https://github.com/nikvn89/institutional_proof_of_promise
+
+
+---
 
 ## Overview
-Traditional smart contracts rely on human escrow agents or DAO committees to manually verify if a funded team delivered their roadmap (e.g. "launched a beta" or "open-sourced the repo"). This is slow, subjective, and prone to corruption.
 
-**Proof of Promise** leverages GenLayer's native Intelligent Contracts to autonomously resolve public commitments. It reads web evidence and evaluates it semantically against the initial promise obligations using a decentralized LLM jury.
+An on-chain escrow contract for institutional accountability. Promises are funded with a bounty, and GenLayer's LLM validators independently verify whether the promise was fulfilled by scraping web evidence from trusted domains.
 
-## Why this Primitive is "Institutional Grade"
+---
 
-This contract explicitly addresses the security and trust-model vulnerabilities present in generic URL-fetching Oracles:
+## V3 Fixes (Joaquin's Feedback)
 
-### 1. Strict Source-Authority Policy
-* **Vulnerability:** Generic fact-checkers often allow callers to provide arbitrary URLs, meaning attackers can define the evidence trust model by linking to their own fake websites.
-* **Solution:** At creation, the promise sponsor hardcodes a rigid `trusted_domains` whitelist (e.g., `['github.com', 'twitter.com']`). The `add_evidence` function utilizes Python's `urllib.parse` to aggressively reject any untrusted URL injections. The contract guarantees that the AI only consumes data from pre-approved authoritative sources.
+| Issue | V2 (old) | V3 (fixed) |
+|---|---|---|
+| **Developer assignment** | First `add_evidence` caller becomes dev — anyone can self-assign | Creator explicitly assigns `dev_address` at `create_promise()` |
+| **Evidence submission** | Any account can add evidence | Only assigned developer can submit |
+| **Evaluation timing** | Can trigger at any time, before deadline | `current_ts >= deadline` enforced; rejects premature evaluation |
+| **Payout/Refund** | Transfer was commented out — no money moved | Full lifecycle: FULFILLED→dev, BROKEN→refund, PARTIAL→50/50 split |
+| **Self-dealing** | Creator could be their own developer | `dev_address != creator` enforced |
 
-### 2. Graceful Fail-Closed Handling
-* **Vulnerability:** Unreachable URLs (404s, timeouts) crash naive GenVM consensus implementations.
-* **Solution:** Web acquisition (`gl.nondet.web.render`) is tightly wrapped in `try/except` blocks. If a source is unreachable, the LLM is injected with a strict `ERROR_FETCHING_URL` flag, triggering a graceful degradation of the state to `UNVERIFIABLE` rather than panicking the consensus network.
+---
 
-### 3. Boolean Semantic Consensus
-* **Vulnerability:** Forcing exact JSON matching on subjective evaluations fails due to LLM non-determinism (temperature variance). Naive AI contracts crash when nodes generate slightly different confidence scores.
-* **Solution:** The contract implements a robust Boolean Semantic Consensus Strategy. Instead of strict numerical equivalence, the Validator extracts and compares only the core deterministic `verdict` (`FULFILLED` vs `UNVERIFIABLE`). The underlying confidence scores are preserved in state for UI rendering, but isolated from the consensus layer to guarantee high-availability execution.
+## Security Architecture
 
-### 4. Advanced Threat Protection (v0.2.16 Update)
-* **Caller-Authorization (Evaluation Locks):** To prevent malicious third parties from triggering premature evaluations (before evidence collection is finalized), the `trigger_evaluation` function enforces strict role-based access control. Only the Creator (Funder) or the explicitly assigned Developer can invoke the evaluation process.
-* **Prompt Injection Fencing:** Untrusted user inputs and dynamically scraped web content are tightly sandboxed within `<UNTRUSTED_SUBMISSION>` tags. The contract actively sanitizes and purges forged tags from evidence payloads, preventing prompt-breakout attacks designed to manipulate the LLM into rendering fraudulent `FULFILLED` verdicts.
+| Property | Implementation |
+|---|---|
+| **Creator-Assigned Developer** | `dev_address` set at `create_promise()` by creator only |
+| **Evidence Restricted** | Only `dev_address` can call `add_evidence()` |
+| **Deadline Enforcement** | `current_ts >= deadline` required before evaluation |
+| **Caller Authorization** | Only creator or dev can trigger evaluation |
+| **Full Payout Lifecycle** | FULFILLED→100% dev, PARTIAL→50/50, BROKEN/UNVERIFIABLE→100% refund |
+| **Re-entrancy Protection** | Bounty zeroed before any `gl.transfer()` |
+| **Prompt Injection Fencing** | Evidence wrapped in `<UNTRUSTED>` blocks |
+| **Bounded Schema Validation** | Verdict validated, score clamped 0-100, reason ≤ 280 chars |
+| **Fail-Closed** | Errors default to UNVERIFIABLE → refund to creator |
 
-## Reusability
-This contract serves as a foundational "Lego block" (primitive) that can be plugged into:
-- **Grants DAOs:** Automatically releasing Treasury funds when a milestone reaches `FULFILLED` status.
-- **Decentralized Upwork/Escrow:** Adjudicating gig-economy disputes autonomously based on submitted PRs/Links.
+---
 
-## Deployment
-- **Network:** GenLayer StudioNet
-- **Dependencies:** `py-genlayer:1jb45aa8ynh2a9c9xn3b7qqh8sm5q93hwfp7jqmwsfhh8jpz09h6`
+## Contract Methods
+
+| Method | Who | Description |
+|---|---|---|
+| `create_promise(id, statement, deadline_ts, domains, dev_address)` | Creator (payable) | Fund a promise + assign developer |
+| `add_evidence(id, url)` | Developer only | Submit evidence URL (domain-whitelisted) |
+| `trigger_evaluation(id, current_ts)` | Creator or Developer | AI evaluates after deadline |
+| `get_promise(id)` | Anyone | View promise state + evidence |
+| `get_all_promises()` | Anyone | View all promises |
+
+---
+
+## Promise Lifecycle
+
+```
+create_promise (ACTIVE, bounty locked, dev assigned)
+       ↓
+add_evidence (dev submits URLs)
+       ↓
+trigger_evaluation (after deadline)
+       ↓
+   ┌──────────────┬──────────────────┬──────────────┐
+FULFILLED      PARTIALLY_FULFILLED  BROKEN/UNVERIFIABLE
+100% → dev     50% dev / 50% creator   100% → creator refund
+```
+
+---
+
+## Security Properties Verified
+
+- ✅ Developer assigned by creator at creation — not self-assignable
+- ✅ Only assigned developer can submit evidence
+- ✅ Evaluation blocked before deadline
+- ✅ Only creator or developer can trigger evaluation
+- ✅ Complete payout/refund for all verdict outcomes
+- ✅ Re-entrancy protected (bounty zeroed before transfer)
+- ✅ Self-dealing prevented (creator ≠ developer)
+- ✅ Bounded schema validation on AI results
+- ✅ Fail-closed design (errors → UNVERIFIABLE → refund)
